@@ -1,4 +1,10 @@
 {
-  "updatedAt": "2026-11-23T14:30:00.000Z",
-  "videos": []
+  "updatedAt": "2026-11-23T14:57:09.801Z",
+  "videos": [
+    {
+      "id": "a183fed1-9bb2-410f-8acb-9a149d677854",
+      "title": "Kind word",
+      "url": "videos/kind-word.mp4"
+    }
+  ]
 }
