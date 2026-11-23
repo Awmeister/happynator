@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-23T15:26:18.375Z",
+  "updatedAt": "2026-11-23T16:10:17.224Z",
   "videos": [
     {
       "id": "a183fed1-9bb2-410f-8acb-9a149d677854",
@@ -10,6 +10,11 @@
       "id": "5770c359-916f-46e7-a0cb-9946a5bf8a19",
       "title": "Smilefabrikken",
       "url": "videos/smilefabrikken.mp4"
+    },
+    {
+      "id": "0f715e47-4b5e-453e-8ebd-92eef378bcbd",
+      "title": "Split flap glaede",
+      "url": "videos/split-flap-glaede.mp4"
     }
   ]
 }
