@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playliste-admin – Videoafspiller</title>
+  <style>
+    :root {
+      --bg: #0b0e14;
+      --card: #131823;
+      --card-elevated: #1a2130;
+      --border: rgba(255, 255, 255, 0.1);
+      --border-strong: rgba(255, 255, 255, 0.2);
+      --text: #f3f6fc;
+      --muted: #93a0b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --success-bg: rgba(34, 197, 94, 0.14);
+      --warn: #f59e0b;
+      --warn-bg: rgba(245, 158, 11, 0.14);
+      --danger: #ef4444;
+      --danger-bg: rgba(239, 68, 68, 0.14);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      line-height: 1.5;
+      padding: 20px 16px 64px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+      padding-bottom: 6px;
+    }
+
+    .header-title h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .header-title p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 550;
+      background: var(--warn-bg);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .status-pill.connected {
+      background: var(--success-bg);
+      color: #86efac;
+      border-color: rgba(34, 197, 94, 0.3);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .card-header h2 {
+      font-size: 1.08rem;
+      font-weight: 650;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+    }
+
+    .badge.dirty {
+      background: var(--warn-bg);
+      color: #fcd34d;
+    }
+
+    /* Form controls */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 140px;
+      gap: 12px;
+    }
+
+    @media (max-width: 680px) {
+      .grid-2, .grid-3 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field label {
+      font-size: 0.83rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="url"] {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: #0a0d13;
+      color: var(--text);
+      font-size: 0.92rem;
+      transition: border-color 0.15s ease;
+    }
+
+    input:focus {
+      outline: 2px solid var(--accent);
+      border-color: transparent;
+    }
+
+    .input-with-btn {
+      display: flex;
+      gap: 8px;
+    }
+
+    .input-with-btn input {
+      flex: 1;
+    }
+
+    .help-text {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .help-text.highlight {
+      color: #93c5fd;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 9px 14px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 0.88rem;
+      font-weight: 550;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--border-strong);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+
+    .btn-success {
+      background: #16a34a;
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #15803d;
+    }
+
+    .btn-danger {
+      color: #fca5a5;
+      border-color: rgba(239, 68, 68, 0.3);
+      background: var(--danger-bg);
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: rgba(239, 68, 68, 0.24);
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      border-radius: 7px;
+    }
+
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+    }
+
+    .row-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    /* Collapsible details */
+    details.guide {
+      margin-top: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+    }
+
+    details.guide summary {
+      cursor: pointer;
+      font-size: 0.86rem;
+      font-weight: 550;
+      color: #93c5fd;
+    }
+
+    details.guide ol {
+      margin-top: 10px;
+      padding-left: 20px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    details.guide strong {
+      color: var(--text);
+    }
+
+    /* Repo file picker */
+    #repo-files-panel {
+      display: none;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    #repo-files-panel.open {
+      display: block;
+    }
+
+    .repo-files-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 260px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    .repo-file-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      background: var(--card-elevated);
+      border: 1px solid var(--border);
+      font-size: 0.86rem;
+    }
+
+    .repo-file-path {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.82rem;
+    }
+
+    .repo-file-meta {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-left: 8px;
+    }
+
+    /* Playlist items */
+    .playlist-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .empty-playlist {
+      text-align: center;
+      padding: 36px 16px;
+      border: 1px dashed var(--border-strong);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .playlist-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 11px;
+      background: var(--card-elevated);
+      border: 1px solid var(--border);
+      transition: border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    .playlist-item.dragging {
+      opacity: 0.45;
+    }
+
+    .playlist-item.drag-over {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    }
+
+    .drag-handle {
+      cursor: grab;
+      color: var(--muted);
+      font-size: 1.05rem;
+      padding: 4px 2px;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    .order-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(59, 130, 246, 0.16);
+      color: #93c5fd;
+      font-weight: 700;
+      font-size: 0.84rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .item-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-title {
+      font-weight: 600;
+      font-size: 0.95rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .item-url {
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 2px;
+    }
+
+    .item-edit-form {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .item-controls {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) {
+      .playlist-item {
+        flex-wrap: wrap;
+      }
+      .item-controls {
+        width: 100%;
+        justify-content: flex-end;
+        padding-top: 6px;
+        border-top: 1px solid var(--border);
+      }
+    }
+
+    /* Compact connection bar when collapsed */
+    .collapsed-body {
+      display: none;
+    }
+
+    /* Footer tools */
+    .tools-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding-top: 14px;
+      margin-top: 14px;
+      border-top: 1px solid var(--border);
+    }
+
+    .tools-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Message banner */
+    #banner {
+      display: none;
+      padding: 12px 15px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      border: 1px solid var(--border);
+    }
+
+    #banner.visible {
+      display: block;
+    }
+
+    #banner.success {
+      background: var(--success-bg);
+      border-color: rgba(34, 197, 94, 0.35);
+      color: #bbf7d0;
+    }
+
+    #banner.error {
+      background: var(--danger-bg);
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #fecaca;
+    }
+
+    #banner.info {
+      background: rgba(59, 130, 246, 0.14);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: #bfdbfe;
+    }
+
+    /* Preview modal */
+    #preview-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(6px);
+    }
+
+    #preview-modal.open {
+      display: flex;
+    }
+
+    .preview-box {
+      width: 100%;
+      max-width: 760px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
+    }
+
+    .preview-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-header h3 {
+      font-size: 0.98rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .preview-stage {
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 260px;
+      max-height: 68vh;
+      position: relative;
+    }
+
+    .preview-stage video {
+      width: 100%;
+      max-height: 68vh;
+      display: block;
+    }
+
+    .preview-error {
+      display: none;
+      padding: 24px;
+      text-align: center;
+      color: #fca5a5;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-title">
+        <h1>Playliste-admin</h1>
+        <p>Tilføj, navngiv, slet og sortér MP4-videoer til fuldskærms-afspilleren</p>
+      </div>
+      <div class="header-actions">
+        <span id="connection-pill" class="status-pill">
+          <span class="status-dot"></span>
+          <span id="connection-pill-text">Lokal test-tilstand</span>
+        </span>
+        <a id="link-player" class="btn btn-primary" href="index.html" target="_blank" rel="noopener">Åbn afspiller ↗</a>
+      </div>
+    </header>
+
+    <!-- Feedback banner -->
+    <div id="banner" role="status"></div>
+
+    <!-- GitHub Connection Card -->
+    <section class="card">
+      <div class="card-header" style="margin-bottom: 0;">
+        <h2>
+          GitHub-forbindelse
+          <span id="gh-badge" class="badge">Ikke forbundet</span>
+        </h2>
+        <button id="btn-toggle-gh" class="btn btn-sm" type="button">Skjul / vis indstillinger</button>
+      </div>
+
+      <div id="gh-body" style="margin-top: 14px;">
+        <div class="grid-3">
+          <div class="field">
+            <label for="gh-owner">GitHub brugernavn (Owner)</label>
+            <input id="gh-owner" type="text" placeholder="f.eks. mitbrugernavn" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="gh-repo">Repository navn</label>
+            <input id="gh-repo" type="text" placeholder="f.eks. Happynator" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="gh-branch">Branch</label>
+            <input id="gh-branch" type="text" placeholder="main" value="main" autocomplete="off">
+          </div>
+        </div>
+
+        <div class="field" style="margin-top: 12px;">
+          <label for="gh-token">GitHub Personal Access Token (gemmes kun lokalt i denne browser)</label>
+          <div class="input-with-btn">
+            <input id="gh-token" type="password" placeholder="github_pat_..." autocomplete="off">
+            <button id="btn-toggle-token" class="btn" type="button">Vis</button>
+          </div>
+          <p class="help-text">
+            Nøglen sendes aldrig til andre servere og bliver aldrig lagt i dit repository. Den bruges kun fra din enhed til at opdatere <code>playlist.json</code> direkte på GitHub.
+          </p>
+        </div>
+
+        <div class="row-actions">
+          <button id="btn-connect" class="btn btn-primary" type="button">Forbind & hent playliste fra GitHub</button>
+          <button id="btn-disconnect" class="btn btn-danger" type="button">Log ud / fjern token</button>
+        </div>
+
+        <details class="guide">
+          <summary>Sådan opretter du en sikker GitHub-nøgle (Fine-grained token) på 30 sekunder</summary>
+          <ol>
+            <li>Log ind på GitHub og gå til <strong>Settings → Developer settings → Personal access tokens → Fine-grained tokens</strong>.</li>
+            <li>Klik på <strong>Generate new token</strong> og giv den et navn (f.eks. <em>Playliste-admin</em>).</li>
+            <li>Under <strong>Repository access</strong>: vælg <strong>Only select repositories</strong> og vælg dit video-repository.</li>
+            <li>Under <strong>Permissions → Repository permissions</strong>: sæt <strong>Contents</strong> til <strong>Read and write</strong>.</li>
+            <li>Klik på <strong>Generate token</strong>, kopiér nøglen (starter med <code>github_pat_...</code>) og indsæt den i feltet herover.</li>
+          </ol>
+        </details>
+      </div>
+    </section>
+
+    <!-- Add New Video Card -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Tilføj ny MP4-video</h2>
+        <button id="btn-browse-repo" class="btn btn-sm" type="button" style="display: none;">
+          Find MP4-filer i GitHub-repo
+        </button>
+      </div>
+
+      <form id="add-form">
+        <div class="grid-2">
+          <div class="field">
+            <label for="new-title">Titel (valgfri – udfyldes automatisk fra filnavn)</label>
+            <input id="new-title" type="text" placeholder="f.eks. Velkomstvideo">
+          </div>
+          <div class="field">
+            <label for="new-url">MP4-link eller sti i repository</label>
+            <input id="new-url" type="text" placeholder="videos/klip1.mp4 eller https://github.com/..." required>
+          </div>
+        </div>
+        <p id="url-normalize-hint" class="help-text">
+          Tip: Du kan indsætte en sti som <code>videos/min-video.mp4</code>, et GitHub-link (omdannes automatisk), eller et direkte MP4-link.
+        </p>
+
+        <div class="row-actions">
+          <button class="btn btn-primary" type="submit">+ Tilføj til playliste</button>
+          <button id="btn-preview-new" class="btn" type="button">▶ Forhåndsvis link</button>
+        </div>
+      </form>
+
+      <!-- GitHub Repository MP4 Picker -->
+      <div id="repo-files-panel">
+        <div class="card-header" style="margin-bottom: 6px;">
+          <strong style="font-size: 0.9rem;">MP4-filer fundet i dit GitHub-repository</strong>
+          <button id="btn-close-repo-files" class="btn btn-sm" type="button">Luk</button>
+        </div>
+        <div id="repo-files-list" class="repo-files-list"></div>
+      </div>
+    </section>
+
+    <!-- Playlist Card -->
+    <section class="card">
+      <div class="card-header">
+        <h2>
+          Playliste
+          <span id="count-badge" class="badge">0 videoer</span>
+          <span id="dirty-badge" class="badge dirty" style="display: none;">Ikke gemte ændringer</span>
+        </h2>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-reload" class="btn btn-sm" type="button">Genindlæs</button>
+          <button id="btn-save" class="btn btn-success" type="button">Gem playliste</button>
+        </div>
+      </div>
+
+      <div id="playlist-container" class="playlist-list"></div>
+
+      <div class="tools-bar">
+        <span class="help-text" style="margin: 0;">
+          Træk i <strong style="color: var(--text);">⋮⋮</strong> eller brug pilene for at ændre rækkefølge. Genvej: <code>Ctrl+S</code> for at gemme.
+        </span>
+        <div class="tools-group">
+          <button id="btn-export" class="btn btn-sm" type="button">Download playlist.json</button>
+          <button id="btn-import" class="btn btn-sm" type="button">Importér JSON</button>
+          <input id="file-import" type="file" accept=".json,application/json" style="display: none;">
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Video Preview Modal -->
+  <div id="preview-modal">
+    <div class="preview-box">
+      <div class="preview-header">
+        <h3 id="preview-title">Forhåndsvisning</h3>
+        <button id="btn-close-preview" class="btn btn-sm" type="button">Luk</button>
+      </div>
+      <div class="preview-stage">
+        <video id="preview-video" controls playsinline></video>
+        <div id="preview-error" class="preview-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_GH_CONFIG = 'happynator_gh_config';
+      const STORAGE_GH_TOKEN = 'happynator_gh_token';
+      const STORAGE_LOCAL_PLAYLIST = 'happynator_local_playlist';
+
+      const ghOwnerInput = document.getElementById('gh-owner');
+      const ghRepoInput = document.getElementById('gh-repo');
+      const ghBranchInput = document.getElementById('gh-branch');
+      const ghTokenInput = document.getElementById('gh-token');
+      const ghBody = document.getElementById('gh-body');
+      const ghBadge = document.getElementById('gh-badge');
+      const connectionPill = document.getElementById('connection-pill');
+      const connectionPillText = document.getElementById('connection-pill-text');
+      const linkPlayer = document.getElementById('link-player');
+      const banner = document.getElementById('banner');
+
+      const addForm = document.getElementById('add-form');
+      const newTitleInput = document.getElementById('new-title');
+      const newUrlInput = document.getElementById('new-url');
+      const urlHint = document.getElementById('url-normalize-hint');
+      const btnBrowseRepo = document.getElementById('btn-browse-repo');
+      const repoFilesPanel = document.getElementById('repo-files-panel');
+      const repoFilesList = document.getElementById('repo-files-list');
+
+      const playlistContainer = document.getElementById('playlist-container');
+      const countBadge = document.getElementById('count-badge');
+      const dirtyBadge = document.getElementById('dirty-badge');
+      const btnSave = document.getElementById('btn-save');
+      const btnReload = document.getElementById('btn-reload');
+
+      const previewModal = document.getElementById('preview-modal');
+      const previewTitle = document.getElementById('preview-title');
+      const previewVideo = document.getElementById('preview-video');
+      const previewError = document.getElementById('preview-error');
+
+      let playlist = [];
+      let currentFileSha = null;
+      let isConnectedToGitHub = false;
+      let hasUnsavedChanges = false;
+      let editingId = null;
+      let dragSourceIndex = null;
+
+      const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel('happynator_playlist') : null;
+
+      // Safe UTF-8 <-> Base64 helpers (handles Danish æ, ø, å properly)
+      function utf8ToBase64(str) {
+        const bytes = new TextEncoder().encode(str);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      function base64ToUtf8(base64) {
+        const binary = atob(base64.replace(/\s/g, ''));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return new TextDecoder().decode(bytes);
+      }
+
+      function generateId() {
+        if (window.crypto && typeof crypto.randomUUID === 'function') {
+          return crypto.randomUUID();
+        }
+        return `vid-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      }
+
+      function showBanner(type, message) {
+        banner.className = `visible ${type}`;
+        banner.textContent = message;
+      }
+
+      function clearBanner() {
+        banner.className = '';
+        banner.textContent = '';
+      }
+
+      function getFormConfig() {
+        return {
+          owner: ghOwnerInput.value.trim(),
+          repo: ghRepoInput.value.trim(),
+          branch: ghBranchInput.value.trim() || 'main',
+          token: ghTokenInput.value.trim()
+        };
+      }
+
+      function detectInitialGitHubConfig() {
+        const params = new URLSearchParams(window.location.search);
+        const qOwner = params.get('owner')?.trim();
+        const qRepo = params.get('repo')?.trim();
+        const qBranch = params.get('branch')?.trim();
+
+        let saved = null;
+        try {
+          saved = JSON.parse(localStorage.getItem(STORAGE_GH_CONFIG) || 'null');
+        } catch {}
+
+        let pagesOwner = '';
+        let pagesRepo = '';
+        const host = window.location.hostname;
+        if (host.endsWith('.github.io')) {
+          pagesOwner = host.slice(0, -'.github.io'.length);
+          const segments = window.location.pathname.split('/').filter(Boolean);
+          const first = segments[0];
+          const isRootFile = !first || first.endsWith('.html');
+          pagesRepo = isRootFile ? `${pagesOwner}.github.io` : first;
+        }
+
+        const owner = qOwner || saved?.owner || pagesOwner || '';
+        const repo = qRepo || saved?.repo || pagesRepo || '';
+        const branch = qBranch || saved?.branch || 'main';
+        const token = localStorage.getItem(STORAGE_GH_TOKEN) || '';
+
+        return { owner, repo, branch, token };
+      }
+
+      function decodeSafe(str) {
+        try {
+          return decodeURIComponent(str);
+        } catch {
+          return str;
+        }
+      }
+
+      function encodePathSegments(relPath) {
+        return relPath
+          .replace(/^\.?\//, '')
+          .split('/')
+          .map(seg => encodeURIComponent(decodeSafe(seg)))
+          .join('/');
+      }
+
+      function deriveTitleFromUrl(url) {
+        const clean = (url || '').split('?')[0].split('#')[0];
+        const parts = clean.split('/').filter(Boolean);
+        const filename = decodeSafe(parts[parts.length - 1] || 'Video');
+        const noExt = filename.replace(/\.[^.]+$/, '');
+        const spaced = noExt.replace(/[-_]+/g, ' ').trim();
+        if (!spaced) return 'Video';
+        return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+      }
+
+      // Normalize pasted GitHub /blob/ links cleanly
+      function normalizeInputUrl(rawUrl) {
+        const input = (rawUrl || '').trim();
+        if (!input) return { url: '', note: '' };
+
+        const cfg = getFormConfig();
+        const blobMatch = input.match(
+          /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+?)(?:\?.*)?$/i
+        );
+        if (blobMatch) {
+          const [, owner, repo, branch, path] = blobMatch;
+          const sameRepo =
+            cfg.owner &&
+            cfg.repo &&
+            cfg.owner.toLowerCase() === owner.toLowerCase() &&
+            cfg.repo.toLowerCase() === repo.toLowerCase() &&
+            cfg.branch.toLowerCase() === branch.toLowerCase();
+
+          if (sameRepo) {
+            const cleanPath = decodeSafe(path);
+            return {
+              url: cleanPath,
+              note: `GitHub-link fra dit eget repo genkendt → gemmes som relativ sti: ${cleanPath}`
+            };
+          }
+          const rawLink = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodePathSegments(path)}`;
+          return {
+            url: rawLink,
+            note: `GitHub-link omdannes automatisk til direkte videolink (raw.githubusercontent.com).`
+          };
+        }
+
+        return { url: input, note: '' };
+      }
+
+      function getPreviewCandidates(rawUrl) {
+        const { url } = normalizeInputUrl(rawUrl);
+        if (!url) return [];
+        const cfg = getFormConfig();
+        const list = [];
+        const add = (u) => {
+          if (u && !list.includes(u)) list.push(u);
+        };
+
+        if (/^https?:\/\//i.test(url)) {
+          add(url);
+        } else {
+          const encoded = encodePathSegments(url);
+          if (window.location.protocol !== 'file:') {
+            add(`./${encoded}`);
+          }
+          if (cfg.owner && cfg.repo) {
+            add(`https://raw.githubusercontent.com/${cfg.owner}/${cfg.repo}/${cfg.branch}/${encoded}`);
+          }
+          if (window.location.protocol === 'file:') {
+            add(`./${encoded}`);
+          }
+        }
+        return list;
+      }
+
+      function updateConnectionUI() {
+        const cfg = getFormConfig();
+        if (isConnectedToGitHub && cfg.owner && cfg.repo) {
+          connectionPill.className = 'status-pill connected';
+          connectionPillText.textContent = `GitHub: ${cfg.owner}/${cfg.repo}`;
+          ghBadge.textContent = `Forbundet (${cfg.branch})`;
+          ghBadge.style.color = '#86efac';
+          btnSave.textContent = 'Gem til GitHub';
+          btnBrowseRepo.style.display = 'inline-flex';
+          const qs = new URLSearchParams({ owner: cfg.owner, repo: cfg.repo, branch: cfg.branch });
+          linkPlayer.href = window.location.hostname.endsWith('.github.io')
+            ? 'index.html'
+            : `index.html?${qs.toString()}`;
+        } else {
+          connectionPill.className = 'status-pill';
+          connectionPillText.textContent = 'Lokal test-tilstand';
+          ghBadge.textContent = 'Ikke forbundet';
+          ghBadge.style.color = '';
+          btnSave.textContent = 'Gem lokalt (test)';
+          btnBrowseRepo.style.display = 'none';
+          repoFilesPanel.classList.remove('open');
+          linkPlayer.href = 'index.html';
+        }
+      }
+
+      function setDirty(dirty) {
+        hasUnsavedChanges = dirty;
+        dirtyBadge.style.display = dirty ? 'inline-flex' : 'none';
+      }
+
+      function normalizePlaylistData(raw) {
+        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.videos) ? raw.videos : [];
+        return list
+          .filter(v => v && typeof v.url === 'string' && v.url.trim().length > 0)
+          .map(v => ({
+            id: v.id || generateId(),
+            title: (v.title || '').trim() || deriveTitleFromUrl(v.url),
+            url: v.url.trim()
+          }));
+      }
+
+      function renderPlaylist() {
+        countBadge.textContent = `${playlist.length} ${playlist.length === 1 ? 'video' : 'videoer'}`;
+        playlistContainer.innerHTML = '';
+
+        if (playlist.length === 0) {
+          const empty = document.createElement('div');
+          empty.className = 'empty-playlist';
+          empty.textContent = 'Playlisten er tom. Tilføj din første MP4-video herover.';
+          playlistContainer.appendChild(empty);
+          return;
+        }
+
+        playlist.forEach((item, index) => {
+          const row = document.createElement('div');
+          row.className = 'playlist-item';
+          row.dataset.index = String(index);
+          row.draggable = editingId !== item.id;
+
+          // Drag & Drop handlers
+          row.addEventListener('dragstart', (e) => {
+            if (editingId === item.id) {
+              e.preventDefault();
+              return;
+            }
+            dragSourceIndex = index;
+            row.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(index));
+          });
+
+          row.addEventListener('dragend', () => {
+            dragSourceIndex = null;
+            row.classList.remove('dragging');
+            playlistContainer.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+          });
+
+          row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (dragSourceIndex === null || dragSourceIndex === index) return;
+            row.classList.add('drag-over');
+          });
+
+          row.addEventListener('dragleave', () => {
+            row.classList.remove('drag-over');
+          });
+
+          row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            row.classList.remove('drag-over');
+            if (dragSourceIndex === null || dragSourceIndex === index) return;
+            const [moved] = playlist.splice(dragSourceIndex, 1);
+            playlist.splice(index, 0, moved);
+            dragSourceIndex = null;
+            setDirty(true);
+            renderPlaylist();
+          });
+
+          const handle = document.createElement('span');
+          handle.className = 'drag-handle';
+          handle.textContent = '⋮⋮';
+          handle.title = 'Træk for at ændre rækkefølge';
+
+          const order = document.createElement('span');
+          order.className = 'order-badge';
+          order.textContent = String(index + 1);
+
+          row.appendChild(handle);
+          row.appendChild(order);
+
+          if (editingId === item.id) {
+            const editWrap = document.createElement('div');
+            editWrap.className = 'item-edit-form';
+
+            const titleIn = document.createElement('input');
+            titleIn.type = 'text';
+            titleIn.value = item.title;
+            titleIn.placeholder = 'Titel';
+
+            const urlIn = document.createElement('input');
+            urlIn.type = 'text';
+            urlIn.value = item.url;
+            urlIn.placeholder = 'MP4-link eller sti';
+
+            const saveEdit = () => {
+              const norm = normalizeInputUrl(urlIn.value);
+              if (!norm.url) {
+                showBanner('error', 'MP4-link må ikke være tomt.');
+                return;
+              }
+              item.url = norm.url;
+              item.title = titleIn.value.trim() || deriveTitleFromUrl(norm.url);
+              editingId = null;
+              setDirty(true);
+              renderPlaylist();
+              clearBanner();
+            };
+
+            const editBtns = document.createElement('div');
+            editBtns.style.display = 'flex';
+            editBtns.style.gap = '6px';
+
+            const btnOk = document.createElement('button');
+            btnOk.type = 'button';
+            btnOk.className = 'btn btn-sm btn-primary';
+            btnOk.textContent = 'Opdater';
+            btnOk.addEventListener('click', saveEdit);
+
+            const btnCancel = document.createElement('button');
+            btnCancel.type = 'button';
+            btnCancel.className = 'btn btn-sm';
+            btnCancel.textContent = 'Annuller';
+            btnCancel.addEventListener('click', () => {
+              editingId = null;
+              renderPlaylist();
+            });
+
+            editBtns.appendChild(btnOk);
+            editBtns.appendChild(btnCancel);
+
+            editWrap.appendChild(titleIn);
+            editWrap.appendChild(urlIn);
+            editWrap.appendChild(editBtns);
+            row.appendChild(editWrap);
+          } else {
+            const info = document.createElement('div');
+            info.className = 'item-info';
+
+            const titleEl = document.createElement('div');
+            titleEl.className = 'item-title';
+            titleEl.textContent = item.title;
+
+            const urlEl = document.createElement('div');
+            urlEl.className = 'item-url';
+            urlEl.textContent = item.url;
+            urlEl.title = item.url;
+
+            info.appendChild(titleEl);
+            info.appendChild(urlEl);
+            row.appendChild(info);
+
+            const controls = document.createElement('div');
+            controls.className = 'item-controls';
+
+            const btnPlay = document.createElement('button');
+            btnPlay.type = 'button';
+            btnPlay.className = 'btn btn-sm btn-icon';
+            btnPlay.title = 'Forhåndsvis video';
+            btnPlay.textContent = '▶';
+            btnPlay.addEventListener('click', () => openPreview(item.title, item.url));
+
+            const btnUp = document.createElement('button');
+            btnUp.type = 'button';
+            btnUp.className = 'btn btn-sm btn-icon';
+            btnUp.title = 'Flyt op';
+            btnUp.textContent = '↑';
+            btnUp.disabled = index === 0;
+            btnUp.addEventListener('click', () => moveItem(index, index - 1));
+
+            const btnDown = document.createElement('button');
+            btnDown.type = 'button';
+            btnDown.className = 'btn btn-sm btn-icon';
+            btnDown.title = 'Flyt ned';
+            btnDown.textContent = '↓';
+            btnDown.disabled = index === playlist.length - 1;
+            btnDown.addEventListener('click', () => moveItem(index, index + 1));
+
+            const btnEdit = document.createElement('button');
+            btnEdit.type = 'button';
+            btnEdit.className = 'btn btn-sm btn-icon';
+            btnEdit.title = 'Rediger titel/link';
+            btnEdit.textContent = '✎';
+            btnEdit.addEventListener('click', () => {
+              editingId = item.id;
+              renderPlaylist();
+            });
+
+            const btnDel = document.createElement('button');
+            btnDel.type = 'button';
+            btnDel.className = 'btn btn-sm btn-icon btn-danger';
+            btnDel.title = 'Slet video';
+            btnDel.textContent = '✕';
+            btnDel.addEventListener('click', () => {
+              playlist.splice(index, 1);
+              setDirty(true);
+              renderPlaylist();
+            });
+
+            controls.appendChild(btnPlay);
+            controls.appendChild(btnUp);
+            controls.appendChild(btnDown);
+            controls.appendChild(btnEdit);
+            controls.appendChild(btnDel);
+            row.appendChild(controls);
+          }
+
+          playlistContainer.appendChild(row);
+        });
+      }
+
+      function moveItem(fromIdx, toIdx) {
+        if (toIdx < 0 || toIdx >= playlist.length) return;
+        const [moved] = playlist.splice(fromIdx, 1);
+        playlist.splice(toIdx, 0, moved);
+        setDirty(true);
+        renderPlaylist();
+      }
+
+      // Video Preview Modal with automatic URL fallback
+      function openPreview(title, url) {
+        const candidates = getPreviewCandidates(url);
+        previewTitle.textContent = title || url;
+        previewError.style.display = 'none';
+        previewVideo.style.display = 'block';
+        previewModal.classList.add('open');
+
+        if (candidates.length === 0) {
+          previewVideo.style.display = 'none';
+          previewError.style.display = 'block';
+          previewError.textContent = 'Intet gyldigt videolink angivet.';
+          return;
+        }
+
+        let idx = 0;
+        const loadCandidate = () => {
+          previewVideo.src = candidates[idx];
+          previewVideo.load();
+        };
+
+        previewVideo.onerror = () => {
+          idx += 1;
+          if (idx < candidates.length) {
+            loadCandidate();
+          } else {
+            previewVideo.style.display = 'none';
+            previewError.style.display = 'block';
+            previewError.textContent = `Kunne ikke afspille "${url}". Tjek at filen findes i dit offentlige GitHub-repository og er i MP4-format.`;
+          }
+        };
+
+        loadCandidate();
+      }
+
+      function closePreview() {
+        previewVideo.pause();
+        previewVideo.onerror = null;
+        previewVideo.removeAttribute('src');
+        previewVideo.load();
+        previewModal.classList.remove('open');
+      }
+
+      // GitHub API calls
+      function ghHeaders(token) {
+        const h = {
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28'
+        };
+        if (token) h.Authorization = `Bearer ${token}`;
+        return h;
+      }
+
+      async function connectAndFetchFromGitHub(silentOnError = false) {
+        const cfg = getFormConfig();
+        if (!cfg.owner || !cfg.repo || !cfg.token) {
+          if (!silentOnError) {
+            showBanner('error', 'Udfyld GitHub brugernavn, repository navn og din Personal Access Token.');
+          }
+          return false;
+        }
+
+        try {
+          if (!silentOnError) showBanner('info', 'Forbinder til GitHub...');
+
+          // 1. Verify repo access & token permissions
+          const repoRes = await fetch(
+            `https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}`,
+            { headers: ghHeaders(cfg.token), cache: 'no-store' }
+          );
+
+          if (repoRes.status === 401) {
+            throw new Error('GitHub-token blev afvist (ugyldig eller udløbet token).');
+          }
+          if (repoRes.status === 404) {
+            throw new Error(`Kunne ikke finde repository "${cfg.owner}/${cfg.repo}" eller mangler adgang.`);
+          }
+          if (!repoRes.ok) {
+            throw new Error(`GitHub svarede med fejl ${repoRes.status}.`);
+          }
+
+          // Save config locally on this admin device
+          localStorage.setItem(
+            STORAGE_GH_CONFIG,
+            JSON.stringify({ owner: cfg.owner, repo: cfg.repo, branch: cfg.branch })
+          );
+          localStorage.setItem(STORAGE_GH_TOKEN, cfg.token);
+
+          // 2. Fetch playlist.json
+          const fileUrl = `https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/contents/playlist.json?ref=${encodeURIComponent(cfg.branch)}`;
+          const fileRes = await fetch(fileUrl, { headers: ghHeaders(cfg.token), cache: 'no-store' });
+
+          if (fileRes.status === 404) {
+            // playlist.json doesn't exist in repo yet — will be created on first save!
+            currentFileSha = null;
+            playlist = [];
+          } else if (!fileRes.ok) {
+            throw new Error(`Kunne ikke hente playlist.json (HTTP ${fileRes.status}). Tjek at branch "${cfg.branch}" findes.`);
+          } else {
+            const payload = await fileRes.json();
+            currentFileSha = payload.sha;
+            const jsonText = base64ToUtf8(payload.content || '');
+            playlist = normalizePlaylistData(JSON.parse(jsonText));
+          }
+
+          isConnectedToGitHub = true;
+          setDirty(false);
+          updateConnectionUI();
+          renderPlaylist();
+          ghBody.classList.add('collapsed-body');
+
+          if (!silentOnError) {
+            showBanner('success', `Forbundet til ${cfg.owner}/${cfg.repo} (${playlist.length} videoer hentet).`);
+          }
+          return true;
+        } catch (err) {
+          isConnectedToGitHub = false;
+          updateConnectionUI();
+          if (!silentOnError) {
+            showBanner('error', err.message || 'Kunne ikke forbinde til GitHub.');
+          }
+          return false;
+        }
+      }
+
+      async function savePlaylistToGitHub() {
+        const cfg = getFormConfig();
+        if (!cfg.owner || !cfg.repo || !cfg.token) {
+          showBanner('error', 'Forbind til GitHub først, før du kan gemme.');
+          return;
+        }
+
+        btnSave.disabled = true;
+        const prevLabel = btnSave.textContent;
+        btnSave.textContent = 'Gemmer...';
+
+        try {
+          const dataObj = {
+            updatedAt: new Date().toISOString(),
+            videos: playlist.map(v => ({
+              id: v.id,
+              title: v.title,
+              url: v.url
+            }))
+          };
+
+          const jsonString = JSON.stringify(dataObj, null, 2) + '\n';
+          const body = {
+            message: `Opdater playliste (${playlist.length} videoer)`,
+            content: utf8ToBase64(jsonString),
+            branch: cfg.branch
+          };
+          if (currentFileSha) {
+            body.sha = currentFileSha;
+          }
+
+          const url = `https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/contents/playlist.json`;
+          const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+              ...ghHeaders(cfg.token),
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+          });
+
+          if (res.status === 409) {
+            throw new Error(
+              'Playlisten er blevet ændret fra en anden enhed siden du åbnede siden. Klik på "Genindlæs" for at hente nyeste version.'
+            );
+          }
+          if (res.status === 403 || res.status === 401) {
+            throw new Error(
+              'Manglende skriveadgang. Sørg for at din GitHub-token har "Contents: Read and write" til dette repository.'
+            );
+          }
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.message || `GitHub-fejl (HTTP ${res.status}).`);
+          }
+
+          const result = await res.json();
+          currentFileSha = result.content?.sha || currentFileSha;
+          setDirty(false);
+
+          // Also notify any local player tab immediately
+          if (broadcastChannel) broadcastChannel.postMessage({ type: 'updated' });
+
+          showBanner(
+            'success',
+            `Gemt til GitHub! Afspilleren henter automatisk den nye playliste (eller straks ved tryk på R).`
+          );
+        } catch (err) {
+          showBanner('error', err.message || 'Kunne ikke gemme til GitHub.');
+        } finally {
+          btnSave.disabled = false;
+          btnSave.textContent = prevLabel;
+        }
+      }
+
+      function savePlaylistLocally() {
+        const dataObj = {
+          updatedAt: new Date().toISOString(),
+          videos: playlist.map(v => ({
+            id: v.id,
+            title: v.title,
+            url: v.url
+          }))
+        };
+        localStorage.setItem(STORAGE_LOCAL_PLAYLIST, JSON.stringify(dataObj));
+        if (broadcastChannel) broadcastChannel.postMessage({ type: 'updated' });
+        setDirty(false);
+        showBanner(
+          'success',
+          'Gemt i lokal test-tilstand! Hvis du åbner index.html i samme browser, opdateres playlisten med det samme. Forbind til GitHub ovenfor for synkronisering på tværs af enheder.'
+        );
+      }
+
+      async function loadLocalPlaylistFallback() {
+        try {
+          const localRaw = localStorage.getItem(STORAGE_LOCAL_PLAYLIST);
+          if (localRaw) {
+            playlist = normalizePlaylistData(JSON.parse(localRaw));
+            renderPlaylist();
+            return;
+          }
+        } catch {}
+
+        if (window.location.protocol !== 'file:') {
+          try {
+            const res = await fetch(`./playlist.json?t=${Date.now()}`, { cache: 'no-store' });
+            if (res.ok) {
+              playlist = normalizePlaylistData(await res.json());
+              renderPlaylist();
+              return;
+            }
+          } catch {}
+        }
+
+        playlist = [];
+        renderPlaylist();
+      }
+
+      async function browseGitHubMp4Files() {
+        const cfg = getFormConfig();
+        if (!isConnectedToGitHub || !cfg.owner || !cfg.repo) return;
+
+        repoFilesPanel.classList.add('open');
+        repoFilesList.innerHTML = '<div class="help-text">Scanner repository for .mp4-filer...</div>';
+
+        try {
+          const treeUrl = `https://api.github.com/repos/${encodeURIComponent(cfg.owner)}/${encodeURIComponent(cfg.repo)}/git/trees/${encodeURIComponent(cfg.branch)}?recursive=1`;
+          const res = await fetch(treeUrl, { headers: ghHeaders(cfg.token), cache: 'no-store' });
+          if (!res.ok) throw new Error(`Kunne ikke hente filoversigt (HTTP ${res.status}).`);
+          const data = await res.json();
+
+          const mp4Files = (data.tree || [])
+            .filter(node => node.type === 'blob' && /\.mp4$/i.test(node.path))
+            .sort((a, b) => a.path.localeCompare(b.path, 'da'));
+
+          repoFilesList.innerHTML = '';
+
+          if (mp4Files.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'help-text';
+            empty.textContent = 'Ingen .mp4-filer fundet i dette repository endnu. Upload dine MP4-filer til mappen "videos/" på GitHub.';
+            repoFilesList.appendChild(empty);
+            return;
+          }
+
+          mp4Files.forEach(file => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'repo-file-item';
+
+            const left = document.createElement('div');
+            left.style.minWidth = '0';
+            left.style.display = 'flex';
+            left.style.alignItems = 'center';
+
+            const pathSpan = document.createElement('span');
+            pathSpan.className = 'repo-file-path';
+            pathSpan.textContent = file.path;
+            pathSpan.title = file.path;
+            left.appendChild(pathSpan);
+
+            if (typeof file.size === 'number') {
+              const sizeSpan = document.createElement('span');
+              sizeSpan.className = 'repo-file-meta';
+              sizeSpan.textContent = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+              left.appendChild(sizeSpan);
+            }
+
+            const alreadyAdded = playlist.some(v => v.url === file.path);
+            const btnAdd = document.createElement('button');
+            btnAdd.type = 'button';
+            btnAdd.className = `btn btn-sm ${alreadyAdded ? '' : 'btn-primary'}`;
+            btnAdd.textContent = alreadyAdded ? 'Tilføjet ✓' : '+ Tilføj';
+            btnAdd.addEventListener('click', () => {
+              playlist.push({
+                id: generateId(),
+                title: deriveTitleFromUrl(file.path),
+                url: file.path
+              });
+              setDirty(true);
+              renderPlaylist();
+              btnAdd.textContent = 'Tilføjet ✓';
+              btnAdd.className = 'btn btn-sm';
+            });
+
+            itemEl.appendChild(left);
+            itemEl.appendChild(btnAdd);
+            repoFilesList.appendChild(itemEl);
+          });
+        } catch (err) {
+          repoFilesList.innerHTML = '';
+          const errEl = document.createElement('div');
+          errEl.className = 'help-text';
+          errEl.style.color = '#fca5a5';
+          errEl.textContent = err.message || 'Fejl ved hentning af filer.';
+          repoFilesList.appendChild(errEl);
+        }
+      }
+
+      // Event bindings
+      document.getElementById('btn-toggle-gh').addEventListener('click', () => {
+        ghBody.classList.toggle('collapsed-body');
+      });
+
+      document.getElementById('btn-toggle-token').addEventListener('click', (e) => {
+        const isPassword = ghTokenInput.type === 'password';
+        ghTokenInput.type = isPassword ? 'text' : 'password';
+        e.currentTarget.textContent = isPassword ? 'Skjul' : 'Vis';
+      });
+
+      document.getElementById('btn-connect').addEventListener('click', () => {
+        connectAndFetchFromGitHub(false);
+      });
+
+      document.getElementById('btn-disconnect').addEventListener('click', () => {
+        localStorage.removeItem(STORAGE_GH_TOKEN);
+        ghTokenInput.value = '';
+        isConnectedToGitHub = false;
+        currentFileSha = null;
+        updateConnectionUI();
+        ghBody.classList.remove('collapsed-body');
+        showBanner('info', 'GitHub-token er fjernet fra denne browser.');
+      });
+
+      newUrlInput.addEventListener('input', () => {
+        const { note } = normalizeInputUrl(newUrlInput.value);
+        if (note) {
+          urlHint.textContent = note;
+          urlHint.classList.add('highlight');
+        } else {
+          urlHint.textContent = 'Tip: Du kan indsætte en sti som videos/min-video.mp4, et GitHub-link (omdannes automatisk), eller et direkte MP4-link.';
+          urlHint.classList.remove('highlight');
+        }
+      });
+
+      addForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const { url } = normalizeInputUrl(newUrlInput.value);
+        if (!url) {
+          showBanner('error', 'Indtast et MP4-link eller en filsti.');
+          return;
+        }
+        const title = newTitleInput.value.trim() || deriveTitleFromUrl(url);
+        playlist.push({
+          id: generateId(),
+          title,
+          url
+        });
+        newTitleInput.value = '';
+        newUrlInput.value = '';
+        urlHint.textContent = 'Tip: Du kan indsætte en sti som videos/min-video.mp4, et GitHub-link (omdannes automatisk), eller et direkte MP4-link.';
+        urlHint.classList.remove('highlight');
+        setDirty(true);
+        renderPlaylist();
+        clearBanner();
+      });
+
+      document.getElementById('btn-preview-new').addEventListener('click', () => {
+        const { url } = normalizeInputUrl(newUrlInput.value);
+        if (!url) {
+          showBanner('error', 'Indtast først et MP4-link for at forhåndsvise det.');
+          return;
+        }
+        openPreview(newTitleInput.value.trim() || deriveTitleFromUrl(url), url);
+      });
+
+      btnBrowseRepo.addEventListener('click', browseGitHubMp4Files);
+      document.getElementById('btn-close-repo-files').addEventListener('click', () => {
+        repoFilesPanel.classList.remove('open');
+      });
+
+      btnSave.addEventListener('click', () => {
+        if (isConnectedToGitHub) {
+          savePlaylistToGitHub();
+        } else {
+          savePlaylistLocally();
+        }
+      });
+
+      btnReload.addEventListener('click', async () => {
+        if (hasUnsavedChanges && !confirm('Du har ikke-gemte ændringer. Vil du genindlæse og kassere dem?')) {
+          return;
+        }
+        if (isConnectedToGitHub) {
+          await connectAndFetchFromGitHub(false);
+        } else {
+          await loadLocalPlaylistFallback();
+          setDirty(false);
+          showBanner('info', 'Playliste genindlæst.');
+        }
+      });
+
+      document.getElementById('btn-export').addEventListener('click', () => {
+        const dataObj = {
+          updatedAt: new Date().toISOString(),
+          videos: playlist.map(v => ({ id: v.id, title: v.title, url: v.url }))
+        };
+        const blob = new Blob([JSON.stringify(dataObj, null, 2) + '\n'], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'playlist.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+
+      const fileImport = document.getElementById('file-import');
+      document.getElementById('btn-import').addEventListener('click', () => fileImport.click());
+      fileImport.addEventListener('change', async () => {
+        const file = fileImport.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          playlist = normalizePlaylistData(JSON.parse(text));
+          setDirty(true);
+          renderPlaylist();
+          showBanner('info', `Importerede ${playlist.length} videoer. Husk at trykke på "Gem".`);
+        } catch {
+          showBanner('error', 'Kunne ikke læse JSON-filen.');
+        } finally {
+          fileImport.value = '';
+        }
+      });
+
+      document.getElementById('btn-close-preview').addEventListener('click', closePreview);
+      previewModal.addEventListener('click', (e) => {
+        if (e.target === previewModal) closePreview();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && previewModal.classList.contains('open')) {
+          closePreview();
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+          e.preventDefault();
+          btnSave.click();
+        }
+      });
+
+      window.addEventListener('beforeunload', (e) => {
+        if (hasUnsavedChanges) {
+          e.preventDefault();
+          e.returnValue = '';
+        }
+      });
+
+      // Initialize
+      const initial = detectInitialGitHubConfig();
+      ghOwnerInput.value = initial.owner;
+      ghRepoInput.value = initial.repo;
+      ghBranchInput.value = initial.branch;
+      ghTokenInput.value = initial.token;
+      updateConnectionUI();
+
+      if (initial.owner && initial.repo && initial.token) {
+        connectAndFetchFromGitHub(true).then(ok => {
+          if (!ok) loadLocalPlaylistFallback();
+        });
+      } else {
+        loadLocalPlaylistFallback();
+      }
+    })();
+  </script>
+</body>
+</html>

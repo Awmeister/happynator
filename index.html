@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Videoafspiller – Fuld skærm</title>
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: rgba(18, 20, 26, 0.86);
+      --surface-hover: rgba(32, 36, 46, 0.94);
+      --border: rgba(255, 255, 255, 0.14);
+      --text: #f4f6fb;
+      --muted: #9aa4b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body.cursor-hidden,
+    body.cursor-hidden * {
+      cursor: none !important;
+    }
+
+    /* Dual-buffer video stage */
+    #stage {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .video-slot {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+      opacity: 0;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .video-slot.active {
+      opacity: 1;
+      z-index: 2;
+      pointer-events: auto;
+    }
+
+    /* Empty / loading / error center cards */
+    #center-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(0, 0, 0, 0.78);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    #center-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .overlay-card {
+      max-width: 480px;
+      width: 100%;
+      background: #11141b;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    }
+
+    .overlay-card h1 {
+      font-size: 1.35rem;
+      font-weight: 650;
+      margin-bottom: 10px;
+    }
+
+    .overlay-card p {
+      font-size: 0.95rem;
+      line-height: 1.55;
+      color: var(--muted);
+      margin-bottom: 20px;
+      word-break: break-word;
+    }
+
+    .overlay-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    /* Minimal floating HUD */
+    #hud {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(8px);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: calc(100vw - 32px);
+      padding: 10px 14px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    #hud.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .hud-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      color: var(--text);
+      padding: 0 6px;
+      max-width: 340px;
+    }
+
+    .hud-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+    }
+
+    .hud-dot.playing {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+    }
+
+    .hud-dot.error {
+      background: var(--danger);
+    }
+
+    .hud-meta {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .hud-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    @media (max-width: 780px) {
+      .hud-divider {
+        display: none;
+      }
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 13px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-size: 0.86rem;
+      font-weight: 550;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--surface-hover);
+      border-color: rgba(255, 255, 255, 0.26);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: transparent;
+    }
+
+    .kbd {
+      display: inline-block;
+      padding: 2px 6px;
+      font-size: 0.76rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 5px;
+      color: var(--text);
+    }
+
+    /* Toast notifications */
+    #toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-10px);
+      z-index: 30;
+      padding: 10px 16px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.88rem;
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+
+    #toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Settings modal for manual GitHub repo linking (optional outside GitHub Pages) */
+    #settings-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0, 0, 0, 0.72);
+      backdrop-filter: blur(6px);
+    }
+
+    #settings-modal.open {
+      display: flex;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 440px;
+      background: #12151d;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+    }
+
+    .modal-box h2 {
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+    }
+
+    .modal-box .hint {
+      font-size: 0.84rem;
+      color: var(--muted);
+      line-height: 1.45;
+      margin-bottom: 16px;
+    }
+
+    .field {
+      margin-bottom: 12px;
+      text-align: left;
+    }
+
+    .field label {
+      display: block;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 5px;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 9px 11px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0a0c11;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .field input:focus {
+      outline: 2px solid var(--accent);
+      border-color: transparent;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <video id="video-a" class="video-slot active" preload="auto" playsinline></video>
+    <video id="video-b" class="video-slot" preload="auto" playsinline></video>
+  </div>
+
+  <!-- Center state card (used only when playlist is empty or current video fails to load) -->
+  <div id="center-overlay">
+    <div class="overlay-card">
+      <h1 id="overlay-title">Indlæser playliste...</h1>
+      <p id="overlay-message">Henter videoer fra playlisten.</p>
+      <div class="overlay-actions" id="overlay-actions"></div>
+    </div>
+  </div>
+
+  <!-- Subtle bottom HUD (auto-hides in fullscreen and during playback) -->
+  <div id="hud" class="visible">
+    <div class="hud-status">
+      <span id="hud-dot" class="hud-dot"></span>
+      <span id="hud-text" class="hud-meta">Indlæser...</span>
+    </div>
+    <div class="hud-divider"></div>
+    <button id="btn-fullscreen" class="btn btn-primary" type="button">Fuld skærm <span class="kbd">F</span></button>
+    <button id="btn-refresh" class="btn" type="button" title="Hent seneste playliste nu">Opdater <span class="kbd">R</span></button>
+    <button id="btn-settings" class="btn" type="button" title="GitHub-indstillinger">⚙</button>
+    <a id="link-admin" class="btn" href="admin.html">Admin ↗</a>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Optional GitHub repo config modal (auto-detected on GitHub Pages) -->
+  <div id="settings-modal">
+    <div class="modal-box">
+      <h2>GitHub-forbindelse (afspiller)</h2>
+      <p class="hint">
+        På GitHub Pages findes dit repository automatisk. Kører du lokalt, kan du angive GitHub-oplysninger her for at hente live-playlisten direkte fra GitHub.
+      </p>
+      <div class="field">
+        <label for="cfg-owner">GitHub brugernavn (Owner)</label>
+        <input id="cfg-owner" type="text" placeholder="f.eks. mitbrugernavn" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="cfg-repo">Repository navn</label>
+        <input id="cfg-repo" type="text" placeholder="f.eks. Happynator" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="cfg-branch">Branch</label>
+        <input id="cfg-branch" type="text" placeholder="main" value="main" autocomplete="off">
+      </div>
+      <div class="modal-actions">
+        <button id="btn-cfg-clear" class="btn" type="button">Nulstil</button>
+        <button id="btn-cfg-cancel" class="btn" type="button">Annuller</button>
+        <button id="btn-cfg-save" class="btn btn-primary" type="button">Gem & hent</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const STORAGE_GH_CONFIG = 'happynator_gh_config';
+      const STORAGE_LOCAL_PLAYLIST = 'happynator_local_playlist';
+      const POLL_INTERVAL_MS = 90_000; // 90s keeps unauthenticated GitHub API well under 60 req/hr
+
+      const videoA = document.getElementById('video-a');
+      const videoB = document.getElementById('video-b');
+      const hud = document.getElementById('hud');
+      const hudDot = document.getElementById('hud-dot');
+      const hudText = document.getElementById('hud-text');
+      const btnFullscreen = document.getElementById('btn-fullscreen');
+      const btnRefresh = document.getElementById('btn-refresh');
+      const btnSettings = document.getElementById('btn-settings');
+      const linkAdmin = document.getElementById('link-admin');
+      const centerOverlay = document.getElementById('center-overlay');
+      const overlayTitle = document.getElementById('overlay-title');
+      const overlayMessage = document.getElementById('overlay-message');
+      const overlayActions = document.getElementById('overlay-actions');
+      const toastEl = document.getElementById('toast');
+      const settingsModal = document.getElementById('settings-modal');
+      const cfgOwner = document.getElementById('cfg-owner');
+      const cfgRepo = document.getElementById('cfg-repo');
+      const cfgBranch = document.getElementById('cfg-branch');
+
+      let activeSlot = videoA;
+      let standbySlot = videoB;
+
+      // State machine: 'LOADING' | 'EMPTY' | 'READY' | 'STARTING' | 'PLAYING'
+      let state = 'LOADING';
+      let playlist = [];
+      let currentIndex = 0;
+      let currentVideoId = null;
+      let lastEtag = null;
+      let lastPlaylistSignature = '';
+      let hudTimer = null;
+      let toastTimer = null;
+      let ghConfig = detectGitHubConfig();
+
+      // Safe UTF-8 Base64 decoder (handles æ, ø, å properly)
+      function base64ToUtf8(base64) {
+        const binary = atob(base64.replace(/\s/g, ''));
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return new TextDecoder().decode(bytes);
+      }
+
+      function detectGitHubConfig() {
+        const params = new URLSearchParams(window.location.search);
+        const qOwner = params.get('owner')?.trim();
+        const qRepo = params.get('repo')?.trim();
+        const qBranch = params.get('branch')?.trim() || 'main';
+        if (qOwner && qRepo) {
+          return { owner: qOwner, repo: qRepo, branch: qBranch, source: 'query' };
+        }
+
+        try {
+          const saved = JSON.parse(localStorage.getItem(STORAGE_GH_CONFIG) || 'null');
+          if (saved && saved.owner && saved.repo) {
+            return {
+              owner: saved.owner.trim(),
+              repo: saved.repo.trim(),
+              branch: (saved.branch || 'main').trim(),
+              source: 'saved'
+            };
+          }
+        } catch {}
+
+        const host = window.location.hostname;
+        if (host.endsWith('.github.io')) {
+          const owner = host.slice(0, -'.github.io'.length);
+          const segments = window.location.pathname.split('/').filter(Boolean);
+          const first = segments[0];
+          const isRootFile = !first || first.endsWith('.html');
+          const repo = isRootFile ? `${owner}.github.io` : first;
+          return { owner, repo, branch: 'main', source: 'pages' };
+        }
+
+        return null;
+      }
+
+      function encodePathSegments(relPath) {
+        return relPath
+          .replace(/^\.?\//, '')
+          .split('/')
+          .map(seg => encodeURIComponent(decodeSafe(seg)))
+          .join('/');
+      }
+
+      function decodeSafe(str) {
+        try {
+          return decodeURIComponent(str);
+        } catch {
+          return str;
+        }
+      }
+
+      // Build ordered candidate URLs for resilient video loading (GitHub Pages HTTP 206 first, raw fallback second)
+      function getCandidateUrls(rawUrl) {
+        const input = (rawUrl || '').trim();
+        if (!input) return [];
+
+        const candidates = [];
+        const addUnique = (u) => {
+          if (u && !candidates.includes(u)) candidates.push(u);
+        };
+
+        // Match standard GitHub blob links: https://github.com/owner/repo/blob/branch/path/to/file.mp4
+        const blobMatch = input.match(
+          /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+?)(?:\?.*)?$/i
+        );
+        if (blobMatch) {
+          const [, owner, repo, branch, path] = blobMatch;
+          const encodedPath = encodePathSegments(path);
+          const sameRepo =
+            ghConfig &&
+            ghConfig.owner.toLowerCase() === owner.toLowerCase() &&
+            ghConfig.repo.toLowerCase() === repo.toLowerCase();
+
+          if (sameRepo && window.location.protocol !== 'file:') {
+            addUnique(`./${encodedPath}`);
+          }
+          addUnique(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${encodedPath}`);
+          return candidates;
+        }
+
+        // Absolute URL
+        if (/^https?:\/\//i.test(input)) {
+          addUnique(input);
+          return candidates;
+        }
+
+        // Relative repository path (e.g. "videos/klip1.mp4")
+        const encodedPath = encodePathSegments(input);
+        addUnique(`./${encodedPath}`);
+        if (ghConfig) {
+          addUnique(
+            `https://raw.githubusercontent.com/${ghConfig.owner}/${ghConfig.repo}/${ghConfig.branch}/${encodedPath}`
+          );
+        }
+        return candidates;
+      }
+
+      function showToast(msg, duration = 2600) {
+        toastEl.textContent = msg;
+        toastEl.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove('visible'), duration);
+      }
+
+      function showCenterOverlay(title, message, buttons = []) {
+        overlayTitle.textContent = title;
+        overlayMessage.textContent = message;
+        overlayActions.innerHTML = '';
+        for (const b of buttons) {
+          const el = b.href ? document.createElement('a') : document.createElement('button');
+          el.className = `btn ${b.primary ? 'btn-primary' : ''}`;
+          el.textContent = b.label;
+          if (b.href) {
+            el.href = b.href;
+          } else {
+            el.type = 'button';
+            el.addEventListener('click', () => {
+              el.blur();
+              b.onClick();
+            });
+          }
+          overlayActions.appendChild(el);
+        }
+        centerOverlay.classList.add('visible');
+      }
+
+      function hideCenterOverlay() {
+        centerOverlay.classList.remove('visible');
+      }
+
+      function updateAdminLink() {
+        if (ghConfig && ghConfig.source === 'query') {
+          const qs = new URLSearchParams({
+            owner: ghConfig.owner,
+            repo: ghConfig.repo,
+            branch: ghConfig.branch
+          });
+          linkAdmin.href = `admin.html?${qs.toString()}`;
+        } else {
+          linkAdmin.href = 'admin.html';
+        }
+      }
+
+      function updateHud() {
+        const isFs = Boolean(document.fullscreenElement);
+        btnFullscreen.innerHTML = isFs
+          ? 'Afslut fuld skærm <span class="kbd">F</span>'
+          : 'Fuld skærm <span class="kbd">F</span>';
+
+        if (state === 'EMPTY') {
+          hudDot.className = 'hud-dot error';
+          hudText.textContent = 'Ingen videoer på playlisten';
+          return;
+        }
+
+        if (state === 'LOADING') {
+          hudDot.className = 'hud-dot';
+          hudText.textContent = 'Indlæser playliste...';
+          return;
+        }
+
+        const item = playlist[currentIndex];
+        const counter = `${currentIndex + 1} / ${playlist.length}`;
+        const label = item?.title ? `${counter} • ${item.title}` : counter;
+
+        if (state === 'PLAYING' || state === 'STARTING') {
+          hudDot.className = 'hud-dot playing';
+          hudText.textContent = `Afspiller: ${label}`;
+        } else if (activeSlot._hasError) {
+          hudDot.className = 'hud-dot error';
+          hudText.textContent = `Fejl: ${label}`;
+        } else {
+          hudDot.className = 'hud-dot';
+          hudText.textContent = `Klar (Mellemrum): ${label}`;
+        }
+      }
+
+      function revealHudTemporarily() {
+        document.body.classList.remove('cursor-hidden');
+        hud.classList.add('visible');
+        clearTimeout(hudTimer);
+
+        const shouldAutoHide = Boolean(document.fullscreenElement) || state === 'PLAYING' || state === 'STARTING';
+        if (shouldAutoHide) {
+          hudTimer = setTimeout(() => {
+            if (!settingsModal.classList.contains('open')) {
+              hud.classList.remove('visible');
+              document.body.classList.add('cursor-hidden');
+            }
+          }, 2200);
+        }
+      }
+
+      function hideHudImmediately() {
+        clearTimeout(hudTimer);
+        if (!settingsModal.classList.contains('open')) {
+          hud.classList.remove('visible');
+          document.body.classList.add('cursor-hidden');
+        }
+      }
+
+      async function enterFullscreen() {
+        if (document.fullscreenElement) return true;
+        try {
+          await document.documentElement.requestFullscreen();
+          return true;
+        } catch {
+          return false;
+        }
+      }
+
+      async function toggleFullscreen() {
+        try {
+          if (document.fullscreenElement) {
+            await document.exitFullscreen();
+          } else {
+            await document.documentElement.requestFullscreen();
+          }
+        } catch {
+          showToast('Kunne ikke skifte fuld skærm.');
+        }
+      }
+
+      // Seek to very first frame so browsers reliably decode and paint the still image
+      function seekToFirstFrame(slot) {
+        try {
+          slot.pause();
+          const target = slot.duration && isFinite(slot.duration) && slot.duration > 0.05 ? 0.01 : 0;
+          if (Math.abs(slot.currentTime - target) > 0.02 || slot.currentTime === 0) {
+            slot.currentTime = target;
+          }
+        } catch {}
+      }
+
+      function loadVideoIntoSlot(slot, item) {
+        const token = (slot._loadToken || 0) + 1;
+        slot._loadToken = token;
+        slot._videoId = item ? item.id : null;
+        slot._videoUrl = item ? item.url : null;
+        slot._hasError = false;
+
+        slot.pause();
+
+        if (!item) {
+          slot.removeAttribute('src');
+          slot.load();
+          return;
+        }
+
+        const candidates = getCandidateUrls(item.url);
+        slot._candidates = candidates;
+        slot._candidateIdx = 0;
+
+        if (candidates.length === 0) {
+          handleSlotError(slot, token, item);
+          return;
+        }
+
+        slot.muted = false;
+        slot.src = candidates[0];
+        slot.load();
+      }
+
+      function handleSlotError(slot, token, item) {
+        if (slot._loadToken !== token) return;
+
+        const nextIdx = (slot._candidateIdx || 0) + 1;
+        if (slot._candidates && nextIdx < slot._candidates.length) {
+          slot._candidateIdx = nextIdx;
+          slot.src = slot._candidates[nextIdx];
+          slot.load();
+          return;
+        }
+
+        slot._hasError = true;
+        if (slot === activeSlot) {
+          state = 'READY';
+          updateHud();
+          const label = item?.title || item?.url || 'Ukendt video';
+          const actions = [
+            {
+              label: 'Prøv igen',
+              primary: true,
+              onClick: () => {
+                hideCenterOverlay();
+                loadVideoIntoSlot(activeSlot, playlist[currentIndex]);
+              }
+            }
+          ];
+          if (playlist.length > 1) {
+            actions.push({
+              label: 'Spring til næste video',
+              onClick: () => {
+                hideCenterOverlay();
+                advanceToNextVideo();
+              }
+            });
+          }
+          actions.push({ label: 'Åbn Admin', href: linkAdmin.href });
+          showCenterOverlay(
+            'Kunne ikke indlæse videoen',
+            `Videoen "${label}" (${item?.url || ''}) kunne ikke hentes. Tjek linket i admin-panelet, eller vent 30–60 sekunder hvis du lige har uploadet filen til GitHub.`,
+            actions
+          );
+        }
+      }
+
+      function preloadNextVideo() {
+        if (playlist.length <= 1) {
+          loadVideoIntoSlot(standbySlot, null);
+          return;
+        }
+        const nextIndex = (currentIndex + 1) % playlist.length;
+        const nextItem = playlist[nextIndex];
+        if (
+          standbySlot._videoId === nextItem.id &&
+          standbySlot._videoUrl === nextItem.url &&
+          !standbySlot._hasError
+        ) {
+          seekToFirstFrame(standbySlot);
+          return;
+        }
+        loadVideoIntoSlot(standbySlot, nextItem);
+      }
+
+      function attachSlotListeners(slot) {
+        slot.addEventListener('loadedmetadata', () => {
+          // Only park at frame 0 when NOT actively playing this slot
+          if (!(slot === activeSlot && (state === 'PLAYING' || state === 'STARTING'))) {
+            seekToFirstFrame(slot);
+          }
+        });
+
+        slot.addEventListener('loadeddata', () => {
+          if (slot === activeSlot) {
+            slot._hasError = false;
+            hideCenterOverlay();
+            updateHud();
+          }
+        });
+
+        slot.addEventListener('error', () => {
+          const item = playlist.find(v => v.id === slot._videoId) || {
+            id: slot._videoId,
+            url: slot._videoUrl,
+            title: slot._videoUrl
+          };
+          handleSlotError(slot, slot._loadToken, item);
+        });
+
+        slot.addEventListener('ended', () => {
+          if (slot !== activeSlot || state !== 'PLAYING') return;
+          advanceToNextVideo();
+        });
+      }
+
+      function advanceToNextVideo() {
+        if (playlist.length === 0) {
+          state = 'EMPTY';
+          showEmptyState();
+          return;
+        }
+
+        const nextIndex = (currentIndex + 1) % playlist.length;
+        const nextItem = playlist[nextIndex];
+
+        if (playlist.length === 1) {
+          currentIndex = 0;
+          currentVideoId = nextItem.id;
+          state = 'READY';
+          if (activeSlot._videoId === nextItem.id && activeSlot._videoUrl === nextItem.url && !activeSlot._hasError) {
+            activeSlot.pause();
+            seekToFirstFrame(activeSlot);
+          } else {
+            loadVideoIntoSlot(activeSlot, nextItem);
+          }
+          updateHud();
+          return;
+        }
+
+        // Swap dual video buffers instantaneously (standby already displays frame 0!)
+        const oldActive = activeSlot;
+        activeSlot = standbySlot;
+        standbySlot = oldActive;
+
+        oldActive.pause();
+        oldActive.classList.remove('active');
+        activeSlot.classList.add('active');
+
+        currentIndex = nextIndex;
+        currentVideoId = nextItem.id;
+        state = 'READY';
+
+        const alreadyPreloaded =
+          activeSlot._videoId === nextItem.id &&
+          activeSlot._videoUrl === nextItem.url &&
+          !activeSlot._hasError &&
+          activeSlot.readyState >= 1;
+
+        if (alreadyPreloaded) {
+          hideCenterOverlay();
+          seekToFirstFrame(activeSlot);
+        } else {
+          loadVideoIntoSlot(activeSlot, nextItem);
+        }
+
+        updateHud();
+        preloadNextVideo();
+      }
+
+      function playCurrentVideo() {
+        if (state !== 'READY' || playlist.length === 0) return;
+
+        // If current video failed, attempt fresh load and play
+        if (activeSlot._hasError) {
+          hideCenterOverlay();
+          loadVideoIntoSlot(activeSlot, playlist[currentIndex]);
+        }
+
+        state = 'STARTING';
+        updateHud();
+
+        // Automatically enter fullscreen on Spacebar if not already in fullscreen
+        if (!document.fullscreenElement) {
+          enterFullscreen();
+        }
+
+        activeSlot.muted = false;
+        if (activeSlot.ended) {
+          activeSlot.currentTime = 0;
+        }
+
+        const playPromise = activeSlot.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+          playPromise
+            .then(() => {
+              state = 'PLAYING';
+              hideCenterOverlay();
+              updateHud();
+              hideHudImmediately();
+            })
+            .catch((err) => {
+              state = 'READY';
+              updateHud();
+              if (err && err.name === 'NotAllowedError') {
+                showToast('Klik én gang på skærmen for at tillade lyd, og tryk derefter Mellemrum.', 4200);
+              } else {
+                showToast('Videoen indlæses stadig – prøv at trykke Mellemrum igen om et øjeblik.', 3200);
+              }
+            });
+        } else {
+          state = 'PLAYING';
+          hideCenterOverlay();
+          updateHud();
+          hideHudImmediately();
+        }
+      }
+
+      function showEmptyState() {
+        loadVideoIntoSlot(activeSlot, null);
+        loadVideoIntoSlot(standbySlot, null);
+        updateHud();
+        showCenterOverlay(
+          'Playlisten er tom',
+          'Der er endnu ikke tilføjet nogen MP4-videoer. Åbn admin-panelet for at tilføje dine første videolinks.',
+          [
+            { label: 'Åbn Admin-panel', href: linkAdmin.href, primary: true },
+            { label: 'Opdater playliste', onClick: () => fetchPlaylist(true) }
+          ]
+        );
+      }
+
+      function normalizePlaylistData(raw) {
+        const list = Array.isArray(raw) ? raw : Array.isArray(raw?.videos) ? raw.videos : [];
+        return list
+          .filter(v => v && typeof v.url === 'string' && v.url.trim().length > 0)
+          .map((v, idx) => ({
+            id: v.id || `vid-${idx}-${v.url}`,
+            title: (v.title || '').trim(),
+            url: v.url.trim()
+          }));
+      }
+
+      function applyPlaylist(newList, notifyIfChanged = false) {
+        const signature = JSON.stringify(newList);
+        if (signature === lastPlaylistSignature && state !== 'LOADING') {
+          if (notifyIfChanged) showToast('Playlisten er allerede opdateret.');
+          return;
+        }
+
+        const wasLoading = state === 'LOADING';
+        lastPlaylistSignature = signature;
+        playlist = newList;
+
+        if (playlist.length === 0) {
+          currentIndex = 0;
+          currentVideoId = null;
+          state = 'EMPTY';
+          showEmptyState();
+          return;
+        }
+
+        hideCenterOverlay();
+
+        // While playing: never interrupt playback; just keep position synced and update preloaded next video
+        if (state === 'PLAYING' || state === 'STARTING') {
+          const foundIdx = playlist.findIndex(v => v.id === currentVideoId);
+          if (foundIdx !== -1) {
+            currentIndex = foundIdx;
+          } else {
+            const clamped = Math.min(currentIndex, playlist.length);
+            currentIndex = (clamped - 1 + playlist.length) % playlist.length;
+          }
+          preloadNextVideo();
+          updateHud();
+          if (notifyIfChanged) showToast(`Playliste opdateret (${playlist.length} videoer).`);
+          return;
+        }
+
+        // While READY / LOADING / EMPTY
+        const existingIdx = currentVideoId ? playlist.findIndex(v => v.id === currentVideoId) : -1;
+        if (existingIdx !== -1 && !wasLoading && state === 'READY') {
+          const item = playlist[existingIdx];
+          currentIndex = existingIdx;
+          // Only reload active video if its URL changed
+          if (activeSlot._videoUrl !== item.url) {
+            loadVideoIntoSlot(activeSlot, item);
+          }
+        } else {
+          currentIndex = existingIdx !== -1 ? existingIdx : 0;
+          currentVideoId = playlist[currentIndex].id;
+          state = 'READY';
+          loadVideoIntoSlot(activeSlot, playlist[currentIndex]);
+        }
+
+        preloadNextVideo();
+        updateHud();
+        if (notifyIfChanged) showToast(`Playliste opdateret (${playlist.length} videoer).`);
+      }
+
+      async function fetchFromGitHubApi(force = false) {
+        if (!ghConfig) return null;
+        const { owner, repo, branch } = ghConfig;
+        const apiUrl = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/playlist.json?ref=${encodeURIComponent(branch)}`;
+        const headers = { Accept: 'application/vnd.github+json' };
+        if (lastEtag && !force) {
+          headers['If-None-Match'] = lastEtag;
+        }
+
+        const res = await fetch(apiUrl, { headers, cache: 'no-store' });
+        if (res.status === 304) {
+          return { unchanged: true };
+        }
+        if (!res.ok) {
+          return null;
+        }
+        const etag = res.headers.get('etag');
+        if (etag) lastEtag = etag;
+
+        const payload = await res.json();
+        if (!payload || !payload.content) return null;
+        const decoded = base64ToUtf8(payload.content);
+        return { data: JSON.parse(decoded) };
+      }
+
+      async function fetchFromSameOrigin() {
+        if (window.location.protocol === 'file:') return null;
+        const res = await fetch(`./playlist.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return null;
+        return await res.json();
+      }
+
+      function readLocalTestPlaylist() {
+        try {
+          const raw = localStorage.getItem(STORAGE_LOCAL_PLAYLIST);
+          if (!raw) return null;
+          return JSON.parse(raw);
+        } catch {
+          return null;
+        }
+      }
+
+      async function fetchPlaylist(manual = false) {
+        try {
+          // 1. Live GitHub Contents API (instant updates across devices without waiting for Pages rebuild)
+          if (ghConfig) {
+            const ghResult = await fetchFromGitHubApi(manual);
+            if (ghResult?.unchanged) {
+              if (manual) showToast('Playlisten er allerede opdateret.');
+              return;
+            }
+            if (ghResult?.data) {
+              applyPlaylist(normalizePlaylistData(ghResult.data), manual);
+              return;
+            }
+          }
+
+          // 2. Local test playlist override (when testing locally via admin.html before pushing to GitHub)
+          const localOverride = readLocalTestPlaylist();
+          if (localOverride && (!ghConfig || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:')) {
+            applyPlaylist(normalizePlaylistData(localOverride), manual);
+            return;
+          }
+
+          // 3. Same-origin static playlist.json fallback (GitHub Pages or local HTTP server)
+          const staticData = await fetchFromSameOrigin();
+          if (staticData) {
+            applyPlaylist(normalizePlaylistData(staticData), manual);
+            return;
+          }
+
+          // 4. Fallback to empty state
+          if (state === 'LOADING') {
+            applyPlaylist([], false);
+          } else if (manual) {
+            showToast('Kunne ikke hente playlist.json.');
+          }
+        } catch {
+          const localFallback = readLocalTestPlaylist();
+          if (localFallback) {
+            applyPlaylist(normalizePlaylistData(localFallback), manual);
+          } else if (state === 'LOADING') {
+            applyPlaylist([], false);
+          } else if (manual) {
+            showToast('Netværksfejl ved hentning af playliste.');
+          }
+        }
+      }
+
+      // Keyboard controls
+      window.addEventListener('keydown', (e) => {
+        if (settingsModal.classList.contains('open')) {
+          if (e.key === 'Escape') settingsModal.classList.remove('open');
+          return;
+        }
+
+        const tag = e.target?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable) {
+          return;
+        }
+
+        if (e.code === 'Space' || e.key === ' ') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.repeat) return;
+
+          // Ignore spacebar completely while video is playing or starting (requirement A4)
+          if (state === 'READY') {
+            playCurrentVideo();
+          }
+          return;
+        }
+
+        if (e.key === 'f' || e.key === 'F') {
+          if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            toggleFullscreen();
+          }
+          return;
+        }
+
+        if (e.key === 'r' || e.key === 'R') {
+          if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            fetchPlaylist(true);
+          }
+        }
+      });
+
+      // UI event listeners
+      btnFullscreen.addEventListener('click', () => {
+        btnFullscreen.blur();
+        toggleFullscreen();
+      });
+
+      btnRefresh.addEventListener('click', () => {
+        btnRefresh.blur();
+        fetchPlaylist(true);
+      });
+
+      btnSettings.addEventListener('click', () => {
+        btnSettings.blur();
+        cfgOwner.value = ghConfig?.owner || '';
+        cfgRepo.value = ghConfig?.repo || '';
+        cfgBranch.value = ghConfig?.branch || 'main';
+        settingsModal.classList.add('open');
+      });
+
+      document.getElementById('btn-cfg-cancel').addEventListener('click', () => {
+        settingsModal.classList.remove('open');
+      });
+
+      document.getElementById('btn-cfg-clear').addEventListener('click', () => {
+        localStorage.removeItem(STORAGE_GH_CONFIG);
+        lastEtag = null;
+        ghConfig = detectGitHubConfig();
+        updateAdminLink();
+        settingsModal.classList.remove('open');
+        showToast('GitHub-indstillinger nulstillet.');
+        fetchPlaylist(true);
+      });
+
+      document.getElementById('btn-cfg-save').addEventListener('click', () => {
+        const owner = cfgOwner.value.trim();
+        const repo = cfgRepo.value.trim();
+        const branch = cfgBranch.value.trim() || 'main';
+        if (!owner || !repo) {
+          showToast('Indtast både GitHub brugernavn og repository navn.');
+          return;
+        }
+        const saved = { owner, repo, branch };
+        localStorage.setItem(STORAGE_GH_CONFIG, JSON.stringify(saved));
+        lastEtag = null;
+        ghConfig = { ...saved, source: 'saved' };
+        updateAdminLink();
+        settingsModal.classList.remove('open');
+        fetchPlaylist(true);
+      });
+
+      document.getElementById('stage').addEventListener('dblclick', () => {
+        toggleFullscreen();
+      });
+
+      document.addEventListener('mousemove', revealHudTemporarily);
+      document.addEventListener('fullscreenchange', () => {
+        updateHud();
+        if (document.fullscreenElement) {
+          hideHudImmediately();
+        } else {
+          revealHudTemporarily();
+        }
+      });
+
+      // Instant sync when admin.html updates local test playlist in another tab
+      window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_LOCAL_PLAYLIST || e.key === STORAGE_GH_CONFIG) {
+          ghConfig = detectGitHubConfig();
+          updateAdminLink();
+          fetchPlaylist(false);
+        }
+      });
+
+      if ('BroadcastChannel' in window) {
+        const channel = new BroadcastChannel('happynator_playlist');
+        channel.onmessage = () => fetchPlaylist(false);
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          fetchPlaylist(false);
+        }
+      });
+
+      // Initialize
+      attachSlotListeners(videoA);
+      attachSlotListeners(videoB);
+      updateAdminLink();
+      updateHud();
+      fetchPlaylist(false);
+      setInterval(() => fetchPlaylist(false), POLL_INTERVAL_MS);
+    })();
+  </script>
+</body>
+</html>
