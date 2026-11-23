@@ -1,10 +1,15 @@
 {
-  "updatedAt": "2026-11-23T14:57:09.801Z",
+  "updatedAt": "2026-11-23T15:26:18.375Z",
   "videos": [
     {
       "id": "a183fed1-9bb2-410f-8acb-9a149d677854",
       "title": "Kind word",
       "url": "videos/kind-word.mp4"
+    },
+    {
+      "id": "5770c359-916f-46e7-a0cb-9946a5bf8a19",
+      "title": "Smilefabrikken",
+      "url": "videos/smilefabrikken.mp4"
     }
   ]
 }
